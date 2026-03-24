@@ -32,8 +32,8 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 import { Page, StyleGuide, ArchivedGuide } from './types';
 import { generateStyleGuide } from './services/gemini';
-import jsPDF from 'jspdf';
-import * as htmlToImage from 'html-to-image';
+import { jsPDF } from 'jspdf';
+import html2canvas from 'html2canvas';
 
 // --- Components ---
 
@@ -518,37 +518,44 @@ const GuideResult = ({
     if (!printRef.current) return;
     
     try {
-      const dataUrl = await htmlToImage.toPng(printRef.current, {
-        quality: 1.0,
-        pixelRatio: 2,
-        backgroundColor: '#0a0a0a'
-      });
-      
-      const pdf = new jsPDF('p', 'mm', 'a4');
-      const imgProps = pdf.getImageProperties(dataUrl);
-      const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pageHeight = pdf.internal.pageSize.getHeight();
-      const totalHeight = (imgProps.height * pdfWidth) / imgProps.width;
-      
-      let heightLeft = totalHeight;
-      let position = 0;
-
-      // Add first page
-      pdf.addImage(dataUrl, 'PNG', 0, position, pdfWidth, totalHeight);
-      heightLeft -= pageHeight;
-
-      // Add subsequent pages if content is too long
-      while (heightLeft > 0) {
-        position = heightLeft - totalHeight;
-        pdf.addPage();
-        pdf.addImage(dataUrl, 'PNG', 0, position, pdfWidth, totalHeight);
-        heightLeft -= pageHeight;
+      // Esperar fontes carregarem
+      if (document.fonts) {
+        await document.fonts.ready;
       }
       
-      pdf.save(`style-guide-${Date.now()}.pdf`);
+      // Pequeno atraso para garantir que o layout estabilizou
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      const canvas = await html2canvas(printRef.current, {
+        scale: 2,
+        useCORS: true,
+        backgroundColor: '#1C1B1B',
+        logging: false,
+        allowTaint: false,
+        imageTimeout: 15000,
+        ignoreElements: (element) => element.classList.contains('motion-reduce')
+      });
+      
+      const dataUrl = canvas.toDataURL('image/png', 1.0);
+      
+      // Calcular dimensões para caber em uma única página longa
+      const imgProps = { width: canvas.width, height: canvas.height };
+      const pdfWidth = 210; // Largura A4 em mm
+      const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
+      
+      // Criar PDF com tamanho customizado (página única sem cortes)
+      const pdf = new jsPDF({
+        orientation: 'p',
+        unit: 'mm',
+        format: [pdfWidth, pdfHeight]
+      });
+      
+      pdf.addImage(dataUrl, 'PNG', 0, 0, pdfWidth, pdfHeight, undefined, 'FAST');
+      
+      pdf.save(`guia-estilo-${Date.now()}.pdf`);
     } catch (error) {
       console.error('Erro ao exportar PDF:', error);
-      alert('Erro ao gerar o PDF. Tente novamente.');
+      alert('Houve um problema ao gerar o PDF. Por favor, tente novamente ou use a opção de exportar da lista de projetos.');
     }
   };
 
@@ -579,12 +586,12 @@ const GuideResult = ({
         </div>
       </div>
 
-      <div ref={printRef} className="bg-surface-container-low rounded-lg p-12 border border-white/5 shadow-2xl">
+      <div ref={printRef} className="rounded-lg p-12" style={{ backgroundColor: '#1C1B1B', border: '1px solid rgba(255, 255, 255, 0.1)', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)' }}>
         <div className="flex justify-between items-start mb-12">
-          <h2 className="font-brand text-4xl text-white">Guia de Estilo Gerado</h2>
+          <h2 className="font-brand text-4xl" style={{ color: '#ffffff' }}>Guia de Estilo Gerado</h2>
           <div className="text-right">
-            <p className="text-on-surface/40 text-xs uppercase tracking-widest">Gerado por StyleGen AI</p>
-            <p className="text-on-surface/40 text-xs">{new Date().toLocaleDateString('pt-BR')}</p>
+            <p className="text-xs uppercase tracking-widest" style={{ color: 'rgba(229, 226, 225, 0.4)' }}>Gerado por StyleGen AI</p>
+            <p className="text-xs" style={{ color: 'rgba(229, 226, 225, 0.4)' }}>{new Date().toLocaleDateString('pt-BR')}</p>
           </div>
         </div>
 
@@ -592,14 +599,14 @@ const GuideResult = ({
           {/* Tom de Voz */}
           <section>
             <div className="flex items-center gap-4 mb-6">
-              <MessageSquare className="text-secondary" />
-              <h3 className="font-headline text-2xl font-bold text-primary">🗣️ Tom de Voz</h3>
+              <MessageSquare style={{ color: '#F9ABFF' }} />
+              <h3 className="font-headline text-2xl font-bold" style={{ color: '#DCE1FF' }}>🗣️ Tom de Voz</h3>
             </div>
-            <p className="text-lg text-on-surface mb-6 font-medium">{guide.toneOfVoice.style}</p>
+            <p className="text-lg mb-6 font-medium" style={{ color: '#E5E2E1' }}>{guide.toneOfVoice.style}</p>
             <ul className="space-y-3">
               {guide.toneOfVoice.examples.map((ex, i) => (
-                <li key={i} className="flex items-start gap-3 text-on-surface-variant italic">
-                  <CheckCircle2 size={18} className="text-secondary shrink-0 mt-1" />
+                <li key={i} className="flex items-start gap-3 italic" style={{ color: '#C6C5D0' }}>
+                  <CheckCircle2 size={18} style={{ color: '#F9ABFF' }} className="shrink-0 mt-1" />
                   "{ex}"
                 </li>
               ))}
@@ -609,20 +616,20 @@ const GuideResult = ({
           {/* Paleta de Cores */}
           <section>
             <div className="flex items-center gap-4 mb-8">
-              <Palette className="text-secondary" />
-              <h3 className="font-headline text-2xl font-bold text-primary">🎨 Paleta de Cores</h3>
+              <Palette style={{ color: '#F9ABFF' }} />
+              <h3 className="font-headline text-2xl font-bold" style={{ color: '#DCE1FF' }}>🎨 Paleta de Cores</h3>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-5 gap-4">
               {guide.colorPalette.map((color, i) => (
                 <div key={i} className="flex flex-col gap-3">
                   <div 
-                    className="h-24 rounded-lg shadow-inner border border-white/10" 
-                    style={{ backgroundColor: color.hex }}
+                    className="h-24 rounded-lg" 
+                    style={{ backgroundColor: color.hex, border: '1px solid rgba(255,255,255,0.1)', boxShadow: 'inset 0 2px 4px 0 rgba(0, 0, 0, 0.06)' }}
                   />
                   <div>
-                    <p className="font-bold text-sm text-white">{color.name}</p>
-                    <p className="font-mono text-xs text-secondary mb-2 uppercase">{color.hex}</p>
-                    <p className="text-[10px] text-on-surface-variant leading-tight">{color.usage}</p>
+                    <p className="font-bold text-sm" style={{ color: '#ffffff' }}>{color.name}</p>
+                    <p className="font-mono text-xs mb-2 uppercase" style={{ color: '#F9ABFF' }}>{color.hex}</p>
+                    <p className="text-[10px] leading-tight" style={{ color: '#C6C5D0' }}>{color.usage}</p>
                   </div>
                 </div>
               ))}
@@ -632,25 +639,25 @@ const GuideResult = ({
           {/* Tipografia */}
           <section>
             <div className="flex items-center gap-4 mb-8">
-              <TypeIcon className="text-secondary" />
-              <h3 className="font-headline text-2xl font-bold text-primary">🔡 Tipografia</h3>
+              <TypeIcon style={{ color: '#F9ABFF' }} />
+              <h3 className="font-headline text-2xl font-bold" style={{ color: '#DCE1FF' }}>🔡 Tipografia</h3>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
-              <div className="p-6 rounded-lg bg-surface-container-high">
-                <p className="text-xs font-bold text-secondary uppercase tracking-widest mb-4">Títulos</p>
-                <p className="text-4xl font-bold text-white mb-4" style={{ fontFamily: guide.typography.headings.name }}>
+              <div className="p-6 rounded-lg" style={{ backgroundColor: '#2A2A2A' }}>
+                <p className="text-xs font-bold uppercase tracking-widest mb-4" style={{ color: '#F9ABFF' }}>Títulos</p>
+                <p className="text-4xl font-bold mb-4" style={{ fontFamily: guide.typography.headings.name, color: '#ffffff' }}>
                   {guide.typography.headings.name}
                 </p>
-                <p className="text-sm text-on-surface-variant leading-relaxed italic">
+                <p className="text-sm leading-relaxed italic" style={{ color: '#C6C5D0' }}>
                   {guide.typography.headings.justification}
                 </p>
               </div>
-              <div className="p-6 rounded-lg bg-surface-container-high">
-                <p className="text-xs font-bold text-secondary uppercase tracking-widest mb-4">Corpo</p>
-                <p className="text-xl text-on-surface mb-4" style={{ fontFamily: guide.typography.body.name }}>
+              <div className="p-6 rounded-lg" style={{ backgroundColor: '#2A2A2A' }}>
+                <p className="text-xs font-bold uppercase tracking-widest mb-4" style={{ color: '#F9ABFF' }}>Corpo</p>
+                <p className="text-xl mb-4" style={{ fontFamily: guide.typography.body.name, color: '#E5E2E1' }}>
                   {guide.typography.body.name}
                 </p>
-                <p className="text-sm text-on-surface-variant leading-relaxed italic">
+                <p className="text-sm leading-relaxed italic" style={{ color: '#C6C5D0' }}>
                   {guide.typography.body.justification}
                 </p>
               </div>
@@ -660,32 +667,32 @@ const GuideResult = ({
           {/* Layout e Componentes */}
           <section>
             <div className="flex items-center gap-4 mb-8">
-              <LayoutIcon className="text-secondary" />
-              <h3 className="font-headline text-2xl font-bold text-primary">🧩 Layout e Componentes</h3>
+              <LayoutIcon style={{ color: '#F9ABFF' }} />
+              <h3 className="font-headline text-2xl font-bold" style={{ color: '#DCE1FF' }}>🧩 Layout e Componentes</h3>
             </div>
             <div className="space-y-6">
               <div className="flex flex-col gap-2">
-                <span className="text-xs font-bold text-secondary uppercase tracking-widest">Estilo Visual</span>
-                <p className="text-on-surface">{guide.layout.style}</p>
+                <span className="text-xs font-bold uppercase tracking-widest" style={{ color: '#F9ABFF' }}>Estilo Visual</span>
+                <p style={{ color: '#E5E2E1' }}>{guide.layout.style}</p>
               </div>
               <div className="flex flex-col gap-2">
-                <span className="text-xs font-bold text-secondary uppercase tracking-widest">Botões</span>
-                <p className="text-on-surface">{guide.layout.buttons}</p>
+                <span className="text-xs font-bold uppercase tracking-widest" style={{ color: '#F9ABFF' }}>Botões</span>
+                <p style={{ color: '#E5E2E1' }}>{guide.layout.buttons}</p>
               </div>
               <div className="flex flex-col gap-2">
-                <span className="text-xs font-bold text-secondary uppercase tracking-widest">Cards e Navegação</span>
-                <p className="text-on-surface">{guide.layout.cardsAndNav}</p>
+                <span className="text-xs font-bold uppercase tracking-widest" style={{ color: '#F9ABFF' }}>Cards e Navegação</span>
+                <p style={{ color: '#E5E2E1' }}>{guide.layout.cardsAndNav}</p>
               </div>
             </div>
           </section>
 
           {/* Racional de Design */}
-          <section className="p-8 rounded-lg bg-primary/5 border border-primary/10">
+          <section className="p-8 rounded-lg" style={{ backgroundColor: 'rgba(220, 225, 255, 0.05)', border: '1px solid rgba(220, 225, 255, 0.1)' }}>
             <div className="flex items-center gap-4 mb-6">
-              <Lightbulb className="text-primary" />
-              <h3 className="font-headline text-2xl font-bold text-primary">💡 Racional de Design</h3>
+              <Lightbulb style={{ color: '#DCE1FF' }} />
+              <h3 className="font-headline text-2xl font-bold" style={{ color: '#DCE1FF' }}>💡 Racional de Design</h3>
             </div>
-            <p className="text-on-surface-variant leading-relaxed italic">
+            <p className="leading-relaxed italic" style={{ color: '#C6C5D0' }}>
               {guide.designRationale}
             </p>
           </section>
@@ -816,46 +823,51 @@ export default function App() {
     showToast("Projeto atualizado!");
   };
 
-  const handleExport = async (guideToExport: StyleGuide) => {
+  const handleExport = async (guideToExport: ArchivedGuide) => {
     setExportingGuide(guideToExport);
-    // Wait for render
+    
+    // Esperar fontes carregarem
+    if (document.fonts) {
+      await document.fonts.ready;
+    }
+
+    // Esperar o container oculto renderizar
     setTimeout(async () => {
       if (exportRef.current) {
         try {
-          const dataUrl = await htmlToImage.toPng(exportRef.current, {
-            quality: 1.0,
-            pixelRatio: 2,
-            backgroundColor: '#0a0a0a'
+          const canvas = await html2canvas(exportRef.current, {
+            scale: 2,
+            useCORS: true,
+            backgroundColor: '#1C1B1B',
+            logging: false,
+            allowTaint: false,
+            imageTimeout: 15000
           });
           
-          const pdf = new jsPDF('p', 'mm', 'a4');
-          const imgProps = pdf.getImageProperties(dataUrl);
-          const pdfWidth = pdf.internal.pageSize.getWidth();
-          const pageHeight = pdf.internal.pageSize.getHeight();
-          const totalHeight = (imgProps.height * pdfWidth) / imgProps.width;
+          const dataUrl = canvas.toDataURL('image/png', 1.0);
           
-          let heightLeft = totalHeight;
-          let position = 0;
-
-          // Add first page
-          pdf.addImage(dataUrl, 'PNG', 0, position, pdfWidth, totalHeight);
-          heightLeft -= pageHeight;
-
-          // Add subsequent pages if content is too long
-          while (heightLeft > 0) {
-            position = heightLeft - totalHeight;
-            pdf.addPage();
-            pdf.addImage(dataUrl, 'PNG', 0, position, pdfWidth, totalHeight);
-            heightLeft -= pageHeight;
-          }
+          // Calcular dimensões para caber em uma única página longa
+          const imgProps = { width: canvas.width, height: canvas.height };
+          const pdfWidth = 210; // Largura A4 em mm
+          const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
           
-          pdf.save(`style-guide-${Date.now()}.pdf`);
+          // Criar PDF com tamanho customizado (página única sem cortes)
+          const pdf = new jsPDF({
+            orientation: 'p',
+            unit: 'mm',
+            format: [pdfWidth, pdfHeight]
+          });
+          
+          pdf.addImage(dataUrl, 'PNG', 0, 0, pdfWidth, pdfHeight, undefined, 'FAST');
+          
+          pdf.save(`projeto-${guideToExport.name.toLowerCase().replace(/\s+/g, '-')}-${Date.now()}.pdf`);
         } catch (error) {
           console.error('Erro ao exportar PDF:', error);
+          alert('Erro ao gerar o PDF. Tente novamente.');
         }
       }
       setExportingGuide(null);
-    }, 500);
+    }, 800);
   };
 
   return (
@@ -955,28 +967,88 @@ export default function App() {
       {/* Hidden Export Container */}
       {exportingGuide && (
         <div className="fixed -left-[9999px] top-0 w-[800px]">
-          <div ref={exportRef} className="bg-surface-container-low p-12 text-white">
-            <h1 className="text-4xl font-brand mb-8">Guia de Estilo</h1>
-            <div className="space-y-12">
+          <div ref={exportRef} className="p-12" style={{ backgroundColor: '#1C1B1B', color: '#ffffff' }}>
+            <div className="flex justify-between items-start mb-12 border-b border-white/10 pb-8">
+              <div>
+                <h1 className="text-5xl font-brand mb-2" style={{ color: '#ffffff' }}>Guia de Estilo</h1>
+                <p className="text-xl font-headline" style={{ color: '#DCE1FF' }}>{exportingGuide.name || 'Projeto StyleGen'}</p>
+              </div>
+              <div className="text-right">
+                <p className="text-xs uppercase tracking-widest" style={{ color: 'rgba(229, 226, 225, 0.4)' }}>Gerado por StyleGen AI</p>
+                <p className="text-xs" style={{ color: 'rgba(229, 226, 225, 0.4)' }}>{new Date().toLocaleDateString('pt-BR')}</p>
+              </div>
+            </div>
+
+            <div className="space-y-16">
               <section>
-                <h2 className="text-2xl font-headline text-primary mb-4">Tom de Voz</h2>
-                <p>{exportingGuide.toneOfVoice.style}</p>
+                <div className="flex items-center gap-4 mb-6">
+                  <h2 className="text-2xl font-headline font-bold" style={{ color: '#DCE1FF' }}>🗣️ Tom de Voz</h2>
+                </div>
+                <p className="text-lg mb-6" style={{ color: '#E5E2E1' }}>{exportingGuide.toneOfVoice.style}</p>
+                <ul className="space-y-3">
+                  {exportingGuide.toneOfVoice.examples.map((ex, i) => (
+                    <li key={i} className="italic" style={{ color: '#C6C5D0' }}>"{ex}"</li>
+                  ))}
+                </ul>
               </section>
+
               <section>
-                <h2 className="text-2xl font-headline text-primary mb-4">Cores</h2>
-                <div className="flex gap-4">
+                <h2 className="text-2xl font-headline font-bold mb-8" style={{ color: '#DCE1FF' }}>🎨 Paleta de Cores</h2>
+                <div className="grid grid-cols-5 gap-4">
                   {exportingGuide.colorPalette.map((c, i) => (
-                    <div key={i} className="flex flex-col items-center">
-                      <div className="w-16 h-16 rounded-lg" style={{ backgroundColor: c.hex }}></div>
-                      <span className="text-xs mt-2">{c.hex}</span>
+                    <div key={i} className="flex flex-col gap-3">
+                      <div className="h-20 rounded-lg border" style={{ backgroundColor: c.hex, borderColor: 'rgba(255,255,255,0.1)' }}></div>
+                      <div>
+                        <p className="font-bold text-sm" style={{ color: '#ffffff' }}>{c.name}</p>
+                        <p className="font-mono text-xs" style={{ color: '#F9ABFF' }}>{c.hex}</p>
+                        <p className="text-[10px] leading-tight" style={{ color: '#C6C5D0' }}>{c.usage}</p>
+                      </div>
                     </div>
                   ))}
                 </div>
               </section>
+
               <section>
-                <h2 className="text-2xl font-headline text-primary mb-4">Tipografia</h2>
-                <p>Títulos: {exportingGuide.typography.headings.name}</p>
-                <p>Corpo: {exportingGuide.typography.body.name}</p>
+                <h2 className="text-2xl font-headline font-bold mb-8" style={{ color: '#DCE1FF' }}>🔡 Tipografia</h2>
+                <div className="grid grid-cols-2 gap-12">
+                  <div className="p-6 rounded-lg" style={{ backgroundColor: '#2A2A2A' }}>
+                    <p className="text-xs font-bold uppercase tracking-widest mb-4" style={{ color: '#F9ABFF' }}>Títulos</p>
+                    <p className="text-4xl font-bold mb-4" style={{ fontFamily: exportingGuide.typography.headings.name, color: '#ffffff' }}>
+                      {exportingGuide.typography.headings.name}
+                    </p>
+                    <p className="text-sm italic" style={{ color: '#C6C5D0' }}>{exportingGuide.typography.headings.justification}</p>
+                  </div>
+                  <div className="p-6 rounded-lg" style={{ backgroundColor: '#2A2A2A' }}>
+                    <p className="text-xs font-bold uppercase tracking-widest mb-4" style={{ color: '#F9ABFF' }}>Corpo</p>
+                    <p className="text-xl mb-4" style={{ fontFamily: exportingGuide.typography.body.name, color: '#E5E2E1' }}>
+                      {exportingGuide.typography.body.name}
+                    </p>
+                    <p className="text-sm italic" style={{ color: '#C6C5D0' }}>{exportingGuide.typography.body.justification}</p>
+                  </div>
+                </div>
+              </section>
+
+              <section>
+                <h2 className="text-2xl font-headline font-bold mb-8" style={{ color: '#DCE1FF' }}>🧩 Layout e Componentes</h2>
+                <div className="space-y-6">
+                  <div>
+                    <span className="text-xs font-bold uppercase tracking-widest" style={{ color: '#F9ABFF' }}>Estilo Visual</span>
+                    <p style={{ color: '#E5E2E1' }}>{exportingGuide.layout.style}</p>
+                  </div>
+                  <div>
+                    <span className="text-xs font-bold uppercase tracking-widest" style={{ color: '#F9ABFF' }}>Botões</span>
+                    <p style={{ color: '#E5E2E1' }}>{exportingGuide.layout.buttons}</p>
+                  </div>
+                  <div>
+                    <span className="text-xs font-bold uppercase tracking-widest" style={{ color: '#F9ABFF' }}>Cards e Navegação</span>
+                    <p style={{ color: '#E5E2E1' }}>{exportingGuide.layout.cardsAndNav}</p>
+                  </div>
+                </div>
+              </section>
+
+              <section className="p-8 rounded-lg" style={{ backgroundColor: 'rgba(220, 225, 255, 0.05)', border: '1px solid rgba(220, 225, 255, 0.1)' }}>
+                <h2 className="text-2xl font-headline font-bold mb-4" style={{ color: '#DCE1FF' }}>💡 Racional de Design</h2>
+                <p className="italic leading-relaxed" style={{ color: '#C6C5D0' }}>{exportingGuide.designRationale}</p>
               </section>
             </div>
           </div>
