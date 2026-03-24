@@ -1169,6 +1169,6 @@ export default function App() {
       {/* Decorative Elements */}
       <div className="fixed top-1/4 -left-64 w-[600px] h-[600px] bg-primary/5 rounded-full blur-[120px] pointer-events-none -z-10"></div>
       <div className="fixed bottom-0 -right-64 w-[500px] h-[500px] bg-secondary/5 rounded-full blur-[100px] pointer-events-none -z-10"></div>
-    </div
+    </div> 
   );
 }
