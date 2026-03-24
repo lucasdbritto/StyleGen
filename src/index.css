@@ -1,0 +1,42 @@
+@import "tailwindcss";
+
+@theme {
+  --font-headline: "Space Grotesk", sans-serif;
+  --font-body: "Plus Jakarta Sans", sans-serif;
+  --font-brand: "Changa One", cursive;
+
+  --color-surface: #131313;
+  --color-surface-container-low: #1C1B1B;
+  --color-surface-container-high: #2A2A2A;
+  --color-surface-container-highest: #353534;
+  
+  --color-primary: #DCE1FF;
+  --color-primary-container: #B6C4FF;
+  --color-secondary: #F9ABFF;
+  --color-on-surface: #E5E2E1;
+  --color-on-surface-variant: #C6C5D0;
+  --color-on-primary: #1E2D5E;
+}
+
+@layer base {
+  body {
+    @apply bg-surface text-on-surface font-body selection:bg-secondary/30 selection:text-secondary;
+  }
+}
+
+@layer utilities {
+  .luminous-gradient {
+    background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-container) 100%);
+  }
+  
+  .glass-header {
+    background: rgba(19, 19, 19, 0.7);
+    backdrop-filter: blur(20px);
+  }
+
+  .text-glow {
+    text-shadow: 0 0 12px rgba(182, 196, 255, 0.4);
+  }
+}
+
+@import url('https://fonts.googleapis.com/css2?family=Changa+One&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&family=Space+Grotesk:wght@300;400;500;600;700&display=swap');
